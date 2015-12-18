@@ -1,0 +1,42 @@
+name:                wp-duprefs
+version:             0.1.0.0
+synopsis:            Finds revisions that introduced duplicate reference names on English Wikipedia pages
+-- description:         
+license:             Apache-2.0
+license-file:        LICENSE
+author:              Robin Green
+maintainer:          greenrd@greenrd.org
+-- copyright:           
+-- category:            
+build-type:          Simple
+-- extra-source-files:  
+cabal-version:       >=1.10
+
+executable wp-duprefs
+  main-is:             wp-duprefs.hs
+  other-modules:         Control.Lens.Text.Extras
+                       , Network.Mediawiki.API
+                       , Network.Mediawiki.API.Lowlevel
+  -- other-extensions:    
+  build-depends:         aeson >= 0.10.0.0 && < 0.11
+                       , base >=4.7 && <4.8
+                       , basic-prelude >= 0.5 && <0.6
+                       , bytestring >= 0.10.4.0 && <0.11
+                       , containers >= 0.5.5.1 && <0.6
+                       , hslogger >= 1.2.9 && <1.3
+                       , iso8601-time >= 0.1.4 && <0.2
+                       , lens >= 4.8 && <4.9
+                       , lens-aeson >= 1.0.0.5 && <1.1
+                       , machines >= 0.5 && <0.6
+                       , mtl >= 2.2.1 && <2.3
+                       , non-empty >= 0.2 && <0.3
+                       , text >= 1.2.0.4 && <1.3
+                       , text-icu >= 0.7.0.1 && <0.8
+                       , time >= 1.4.2 && <1.5
+                       , Unique >= 0.4.2 && <0.5
+                       , unordered-containers >= 0.2.5.1 && <0.3
+                       , vector >= 0.10.12.2 && <0.11
+                       , wreq >= 0.4.0.0 && <0.5
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options:         -Wall
