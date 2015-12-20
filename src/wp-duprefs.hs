@@ -25,7 +25,7 @@ type ErrorDetector a = RevText -> Set a
 dupRefs :: ErrorDetector Text
 dupRefs = fromList . repeated . map (normalize . fromJust . group 1) . findRefs . content
   where
-    findRefs = findAll "<\\s*ref\\s+name=(\"[^\"]*\"|[a-zA-Z0-9!$%&()*,\\-.:;<@\\[\\]\\^_`{|}~]+)\\s*>"
+    findRefs = findAll "<\\s*ref\\s+name\\s*=(\"[^\"]*\"|[a-zA-Z0-9!$%&()*,\\-.:;<@\\[\\]\\^_`{|}~]+)\\s*>"
     normalize t | "\"" `T.isPrefixOf` t = read t
                 | otherwise = t
 
@@ -38,12 +38,13 @@ mwBlame ed = autoM blameCM
              case revIDs of
                []            -> fail "No revisions found"
                (r1ID:others) -> do
+                                   liftIO . debugM "Main" . T.unpack $ "1st revision = " ++ show r1ID
                                    r1 <- revisionText r1ID True
                                    let origErrors = ed r1
                                    guard . not $ null origErrors
                                    earliestError <- binSearch origErrors (r1ID, V.fromList $ revid <$> others)
                                    editor <- revisionEditor earliestError
-                                   liftIO . print $ "Dup introduced @ " ++ show earliestError ++ " by " ++ show editor
+                                   liftIO . putStrLn $ "Dup introduced @ " ++ show earliestError ++ " by " ++ show editor
         binSearch :: Set a -> (RevID, V.Vector Int64) -> API RevID
         binSearch origErrors (earliestSoFar, others) | V.null others = return earliestSoFar
                                                      | otherwise = do

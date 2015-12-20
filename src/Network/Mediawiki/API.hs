@@ -104,7 +104,7 @@ revisionText revID expandTemplates = head <$> runT (revisionTexts [revID] expand
 newtype User = User { user :: Text }
              
 instance P.Show User where
-  show (User u) = P.show u
+  show (User u) = unpack u
 
 $(deriveJSON defaultOptions ''User)
 
