@@ -16,6 +16,7 @@ import Data.Text.ICU (findAll, group)
 import qualified Data.Vector.Unboxed as V
 import Data.Vector.Unboxed ((!))
 import Network.Mediawiki.API
+import Network.Wreq (Options)
 import Network.Wreq.Lens (header)
 import Network.Wreq.Session (withAPISession)
 import System.Log.Logger
@@ -37,34 +38,35 @@ mwBlame ed = autoM blameCM
              revIDs <- runT $ revisionIDs (title cm) (timestamp cm)
              case revIDs of
                []            -> fail "No revisions found"
-               (r1ID:others) -> do
-                                   liftIO . debugM "Main" . T.unpack $ "1st revision = " ++ show r1ID
-                                   r1 <- revisionText r1ID True
-                                   let origErrors = ed r1
-                                   guard . not $ null origErrors
-                                   earliestError <- binSearch origErrors (r1ID, V.fromList $ revid <$> others)
-                                   editor <- revisionEditor earliestError
-                                   liftIO . putStrLn $ "Dup introduced @ " ++ show earliestError ++ " by " ++ show editor
+               (r1ID:others) ->
+                 do
+                    liftIO . debugM "Main" . T.unpack $ "1st revision = " ++ show r1ID
+                    r1 <- revisionText r1ID True
+                    let origErrors = ed r1
+                    guard . not $ null origErrors
+                    earliestError <- binSearch origErrors (r1ID, V.fromList $ revid <$> others)
+                    editor <- revisionEditor earliestError
+                    liftIO . putStrLn $ "Dup introduced @ " ++ show earliestError ++ " by " ++ show editor
         binSearch :: Set a -> (RevID, V.Vector Int64) -> API RevID
-        binSearch origErrors (earliestSoFar, others) | V.null others = return earliestSoFar
-                                                     | otherwise = do
-                                                                      let n = V.length others
-                                                                          m = n `div` 2
-                                                                          pivot = RevID $ others ! m
-                                                                      pr <- revisionText pivot True
-                                                                      binSearch origErrors $
-                                                                        if origErrors `isSubsetOf` ed pr
-                                                                          then ( pivot
-                                                                               , V.slice (succ m) 
-                                                                                         (n - succ m) 
-                                                                                         others
-                                                                               )
-                                                                          else (earliestSoFar, V.take m others)
+        binSearch origErrors (earliestSoFar, others)
+                  | V.null others = return earliestSoFar
+                  | otherwise = do
+                                   let n = V.length others
+                                       m = n `div` 2
+                                       pivot = RevID $ others ! m
+                                   pr <- revisionText pivot True
+                                   binSearch origErrors $
+                                     if origErrors `isSubsetOf` ed pr
+                                       then (pivot        , V.slice (succ m) (n - succ m) others)
+                                       else (earliestSoFar, V.take m others)
 
 mainMachine :: MachineT API k ()
 mainMachine = categoryMembers "Pages_with_duplicate_reference_names" (IntSet.singleton 0) ~> mwBlame dupRefs
 
+userAgent :: Options -> Options
+userAgent = header "User-Agent" .~ ["wp-duprefs/0.1.0.0"]
+
 main :: IO ()
 main = do
   updateGlobalLogger rootLoggerName $ setLevel DEBUG
-  withAPISession $ runReaderT (runT_ mainMachine) . APIConnection defaultEndpoint (header "User-Agent" .~ ["wp-duprefs/0.1.0.0"])
+  withAPISession $ runReaderT (runT_ mainMachine) . APIConnection defaultEndpoint userAgent
