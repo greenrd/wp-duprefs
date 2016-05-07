@@ -1,7 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 -- | Programmatic access to (parts of) the Mediawiki API, using wreq
 module Network.Mediawiki.API ( API
@@ -18,23 +18,22 @@ module Network.Mediawiki.API ( API
                              , RevText(..)
                              , User(..)) where
 
-import           BasicPrelude hiding (empty, Vector)
+import           BasicPrelude                   hiding (Vector, empty)
 import           Control.Lens
-import           Data.Aeson.Lens (_JSON, key, values)
-import           Data.Aeson.TH hiding (Options)
-import qualified Data.ByteString as BS
-import           Data.IntSet (IntSet)
-import qualified Data.IntSet as IntSet
-import           Data.Machine.Type (MachineT, runT)
-import           Data.Machine.Process ((~>), asParts, autoM)
-import           Data.Text (pack, unpack)
-import           Data.Time.Clock (UTCTime)
+import           Data.Aeson.Lens                (key, values, _JSON)
+import           Data.Aeson.TH                  hiding (Options)
+import qualified Data.ByteString                as BS
+import qualified Data.IntSet                    as IntSet
+import           Data.Machine.Process           (asParts, autoM, (~>))
+import           Data.Machine.Type              (MachineT, runT)
+import           Data.Text                      (pack, unpack)
+import           Data.Time.Clock                (UTCTime)
 import           Data.Time.ISO8601
 import           Network.Mediawiki.API.Lowlevel
-import qualified Prelude as P
+import qualified Prelude                        as P
 import           System.Log.Logger
 
-data CatMember = CatMember { title :: Text
+data CatMember = CatMember { title     :: Text
                            , timestamp :: UTCTime
                            } deriving (Show)
 
@@ -102,7 +101,7 @@ revisionText :: RevID -> Bool -> API RevText
 revisionText revID expandTemplates = head <$> runT (revisionTexts [revID] expandTemplates)
 
 newtype User = User { user :: Text }
-             
+
 instance P.Show User where
   show (User u) = unpack u
 
