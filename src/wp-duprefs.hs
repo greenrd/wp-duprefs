@@ -1,28 +1,29 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude   #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import BasicPrelude hiding (group, null)
-import Control.Lens ((.~))
-import Control.Monad.Reader (runReaderT)
-import qualified Data.IntSet as IntSet
-import Data.List.Unique (repeated)
-import Data.Machine hiding (repeated)
-import Data.Maybe (fromJust)
-import Data.Set (fromList, isSubsetOf, null)
-import qualified Data.Text as T
-import Data.Text.ICU (findAll, group)
-import qualified Data.Vector.Unboxed as V
-import Data.Vector.Unboxed ((!))
-import Network.Mediawiki.API
-import Network.Wreq (Options)
-import Network.Wreq.Lens (header)
-import Network.Wreq.Session (withAPISession)
-import System.Log.Logger
+import           BasicPrelude          hiding (group, null)
+import           Control.Lens          ((.~))
+import           Control.Monad.Reader  (runReaderT)
+import qualified Data.IntSet           as IntSet
+import           Data.List.Unique      (repeated)
+import           Data.Machine          hiding (repeated)
+import           Data.Maybe            (fromJust)
+import           Data.Set              (fromList, isSubsetOf, null)
+import qualified Data.Text             as T
+import           Data.Text.ICU         (findAll, group)
+import           Data.Vector.Unboxed   ((!))
+import qualified Data.Vector.Unboxed   as V
+import           Network.Mediawiki.API
+import           Network.Wreq          (Options)
+import           Network.Wreq.Lens     (header)
+import           Network.Wreq.Session  (withAPISession)
+import           System.Log.Logger
 
 type ErrorDetector a = RevText -> Set a
 
+-- | A set of duplicate reference names
 dupRefs :: ErrorDetector Text
 dupRefs = fromList . repeated . map (normalize . fromJust . group 1) . findRefs . content
   where

@@ -33,13 +33,16 @@ import           Network.Mediawiki.API.Lowlevel
 import qualified Prelude                        as P
 import           System.Log.Logger
 
-data CatMember = CatMember { title     :: Text
-                           , timestamp :: UTCTime
+-- | A page that belongs to a given category
+data CatMember = CatMember { title     :: Text    -- ^ Page title
+                           , timestamp :: UTCTime -- ^ When it was added to the category
                            } deriving (Show)
 
 $(deriveJSON defaultOptions ''CatMember)
 
 -- XXX: Handle lag timeout better
+-- | Streams CatMembers of @catName@ from oldest to newest. /Note that the oldest ones might be the
+-- result of a bulk import./
 categoryMembers :: forall k. Text -> IntSet -> MachineT API k CatMember
 categoryMembers catName namespaces =
   let m1 = paged (\optsFn ->
@@ -55,6 +58,7 @@ categoryMembers catName namespaces =
       decode = maybe (fail "wrong JSON") return . (^? key "query" . key "categorymembers" . _JSON)
   in m1 ~> autoM decode ~> asParts
 
+-- | Revision ID of a page
 newtype RevID = RevID { revid :: Int64 }
 
 instance P.Show RevID where
@@ -62,6 +66,7 @@ instance P.Show RevID where
 
 $(deriveJSON defaultOptions ''RevID)
 
+-- | Streams all 'RevID's of @pageName@ whose timestamp is older than or equal to @start@, newest first
 revisionIDs :: forall k. Text -> UTCTime -> MachineT API k RevID
 revisionIDs pageName start =
   let m1 = paged (\optsFn ->
@@ -78,10 +83,12 @@ revisionIDs pageName start =
         maybe (fail "wrong JSON") return . (^? key "query" . key "pages" . values . key "revisions" . _JSON) $ bs
   in m1 ~> autoM decode ~> asParts
 
+-- | A revision of a page
 newtype RevText = RevText { content :: Text }
 
 $(deriveJSON defaultOptions ''RevText)
 
+-- | Streams the texts of @revIDs@. @expandTemplates@ indicates whether to expand template invocations like @{{foo}}@.
 revisionTexts :: forall k. [RevID] -> Bool -> MachineT API k RevText
 revisionTexts revIDs expandTemplates =
   let m1 = paged (\optsFn ->
@@ -97,9 +104,11 @@ revisionTexts revIDs expandTemplates =
         maybe (fail "wrong JSON") return . (^? key "query" . key "pages" . values . key "revisions" . _JSON) $ bs
   in m1 ~> autoM decode ~> asParts
 
+-- | Downloads the text of a single revision. @expandTemplates@ indicates whether to expand template invocations like @{{foo}}@.
 revisionText :: RevID -> Bool -> API RevText
 revisionText revID expandTemplates = head <$> runT (revisionTexts [revID] expandTemplates)
 
+-- | An editor of the wiki. May be anonymous, in which case their name will be an IP address.
 newtype User = User { user :: Text }
 
 instance P.Show User where
@@ -107,6 +116,7 @@ instance P.Show User where
 
 $(deriveJSON defaultOptions ''User)
 
+-- | Streams the authors of @revIDs@.
 revisionEditors :: forall k. [RevID] -> MachineT API k User
 revisionEditors revIDs =
   let m1 = paged (\optsFn ->
@@ -119,5 +129,6 @@ revisionEditors revIDs =
       decode = maybe (fail "wrong JSON") return . (^? key "query" . key "pages" . values . key "revisions" . _JSON)
   in m1 ~> autoM decode ~> asParts
 
+-- | Returns the author of @revID@.
 revisionEditor :: RevID -> API User
 revisionEditor revID = head <$> runT (revisionEditors [revID])
