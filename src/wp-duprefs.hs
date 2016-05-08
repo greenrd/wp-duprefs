@@ -7,10 +7,11 @@ import           BasicPrelude          hiding (group, null)
 import           Control.Lens          ((.~))
 import           Control.Monad.Reader  (runReaderT)
 import qualified Data.IntSet           as IntSet
-import           Data.List.Unique      (repeated)
 import           Data.Machine          hiding (repeated)
+import qualified Data.Map.Strict       as M
 import           Data.Maybe            (fromJust)
-import           Data.Set              (fromList, isSubsetOf, null)
+import           Data.Set              (fromList, isSubsetOf, null, singleton,
+                                        size)
 import qualified Data.Text             as T
 import           Data.Text.ICU         (findAll, group)
 import           Data.Vector.Unboxed   ((!))
@@ -23,16 +24,22 @@ import           System.Log.Logger
 
 type ErrorDetector a = RevText -> Set a
 
+data Reference = Reference { refName    :: Text
+                           , refContent :: Text }
+
 -- | A set of duplicate reference names
 dupRefs :: ErrorDetector Text
-dupRefs = fromList . repeated . map (normalize . fromJust . group 1) . findRefs . content
+dupRefs = M.keysSet . M.filter ((> 1) . size) . M.fromListWith mappend . map (refName &&& singleton . refContent) . findRefs . content
+
+findRefs :: Text -> [Reference]
+findRefs = map (uncurry Reference . (normalize . fromJust . group 1 &&& fromJust . group 2)) . matches
   where
-    findRefs = findAll "<\\s*ref\\s+name\\s*=(\"[^\"]*\"|[a-zA-Z0-9!$%&()*,\\-.:;<@\\[\\]\\^_`{|}~]+)\\s*>"
+    matches = findAll "<\\s*ref\\s+name\\s*=(\"[^\"]*\"|[a-zA-Z0-9!$%&()*,\\-.:;<@\\[\\]\\^_`{|}~]+)\\s*>(.*?)<\\s*/\\s*ref>"
     normalize t | "\"" `T.isPrefixOf` t = read t
                 | otherwise = t
 
 -- | Does a binary search through revisions to find the revision that introduced one of the original errors
-mwBlame :: forall a. Ord a => ErrorDetector a -> ProcessT API CatMember ()
+mwBlame :: forall a. (Ord a, Show a) => ErrorDetector a -> ProcessT API CatMember ()
 mwBlame ed = autoM blameCM
   where blameCM cm =
           do
@@ -41,7 +48,6 @@ mwBlame ed = autoM blameCM
                []            -> fail "No revisions found"
                (r1ID:others) ->
                  do
-                    liftIO . debugM "Main" . T.unpack $ "1st revision = " ++ show r1ID
                     r1 <- revisionText r1ID True
                     let origErrors = ed r1
                     guard . not $ null origErrors
@@ -50,8 +56,9 @@ mwBlame ed = autoM blameCM
                     liftIO . putStrLn $ "Dup introduced @ " ++ show earliestError ++ " by " ++ show editor
         binSearch :: Set a -> (RevID, V.Vector Int64) -> API RevID
         binSearch origErrors (earliestSoFar, others)
-                  | V.null others = return earliestSoFar
-                  | otherwise = do
+                  | V.null others = do liftIO . debugM "Main" . T.unpack $ "binSearch: returning " ++ show earliestSoFar
+                                       return earliestSoFar
+                  | otherwise = do liftIO . debugM "Main" . T.unpack $ "binSearch " ++ show origErrors ++ " " ++ show (earliestSoFar, others)
                                    let n = V.length others
                                        m = n `div` 2
                                        pivot = RevID $ others ! m
